@@ -1,7 +1,7 @@
 # WEBCARE Project Setup Script
 
-**Version:** 1.0.0  
-**Release Date:** April 12, 2025
+**Version:** 1.1.0  
+**Release Date:** April 13, 2025
 
 Welcome to the WEBCARE WordPress Local Environment Setup.  
 This script automates the full process of creating a Lando-powered local WordPress site based on your Pantheon environment.
