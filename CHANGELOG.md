@@ -10,6 +10,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 - New `--destination` parameter to specify project installation path during setup.
 - Automatically disable Redis cache locally in `wp-config-local.php` to avoid Redis connection errors in Lando.
 
+### Changed
+- Updated `.lando.yml` generation to explicitly use `via: nginx` for local development.
+- Corrected proxy settings to map the main project URL to `appserver_nginx` to avoid double URL assignment errors in Lando.
+
 ## [1.0.0] - 2025-04-12
 
 ### Added

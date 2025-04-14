@@ -19,7 +19,6 @@
 # Last Updated: 2025-04-12
 # ================================================================
 
-clear
 cat << "EOF"
  __     __     ______     ______     ______     ______     ______     ______                                    
 /\ \  _ \ \   /\  ___\   /\  == \   /\  ___\   /\  __ \   /\  == \   /\  ___\                                   
@@ -37,6 +36,7 @@ EOF
 
 # Default destination to current directory
 DESTINATION=$(pwd)
+ENVIRONMENT=""
 
 # Parse parameters
 while [[ $# -gt 0 ]]; do
@@ -55,6 +55,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 echo "Destination directory: $DESTINATION"
+echo "Selected environment: $ENVIRONMENT"
 
 echo ""
 echo "Starting WEBCARE Project Setup"
@@ -63,6 +64,9 @@ echo "------------------------------------"
 # --------------------------------------------------
 # Authenticate to Pantheon
 # --------------------------------------------------
+echo "Available sites:"
+terminus site:list
+
 echo "Enter the project machine name (example: grassriots):"
 read PROJECT_NAME
 
@@ -80,18 +84,57 @@ fi
 
 # Try to get Git URL and verify Pantheon connection
 echo "Retrieving Git URL from Pantheon..."
-if ! terminus connection:info "$PROJECT_NAME.dev" >/dev/null 2>&1; then
+if ! terminus connection:info "$PROJECT_NAME.$ENVIRONMENT" >/dev/null 2>&1; then
   echo -e "\033[0;31m❌ Unable to connect to Pantheon site '$PROJECT_NAME'. Please verify the site name and your authentication.\033[0m"
   exit 1
 fi
 
 # --------------------------------------------------
+# Retrieve Git commit hash and backup dates for each environment
+# --------------------------------------------------
+declare -A git_commits
+declare -A db_backups
+declare -A file_backups
+
+for env in dev test live; do
+  GIT_URL=$(terminus connection:info "$PROJECT_NAME.$env" --field=git_url)
+  if [[ -n "$GIT_URL" ]]; then
+    git_commit=$(git ls-remote "$GIT_URL" HEAD | awk '{print $1}')
+    git_commits[$env]=$git_commit
+  fi
+
+  backup_info=$(terminus backup:list "$PROJECT_NAME.$env" --format=json)
+  db_backups[$env]=$(echo "$backup_info" | jq -r '.[0].created_at')
+  file_backups[$env]=$(echo "$backup_info" | jq -r '.[1].created_at')
+done
+
+# Output summary
+echo "Summary of backups and commits:"
+for env in dev test live; do
+  echo "Environment: $env"
+  echo "  Latest Git Commit: ${git_commits[$env]}"
+  echo "  Latest Database Backup: ${db_backups[$env]}"
+  echo "  Latest Files Backup: ${file_backups[$env]}"
+done
+
+# Prompt for environment
+while true; do
+  echo "Enter the environment you want to sync (dev, test, live):"
+  read ENVIRONMENT
+  if [[ "$ENVIRONMENT" =~ ^(dev|test|live)$ ]]; then
+    break
+  else
+    echo -e "\033[0;31m❌ Invalid environment. Please enter 'dev', 'test', or 'live'.\033[0m"
+  fi
+done
+
+# --------------------------------------------------
 # Clone Git Repository
 # --------------------------------------------------
-GIT_URL=$(terminus connection:info "$PROJECT_NAME.dev" --field=git_url)
+GIT_URL=$(terminus connection:info "$PROJECT_NAME.$ENVIRONMENT" --field=git_url)
 if [ -z "$GIT_URL" ]; then
   # Try alternate field name
-  GIT_URL=$(terminus connection:info "$PROJECT_NAME.dev" --format=json | grep -o '"ssh_url":"[^"]*"' | cut -d'"' -f4)
+  GIT_URL=$(terminus connection:info "$PROJECT_NAME.$ENVIRONMENT" --format=json | grep -o '"ssh_url":"[^"]*"' | cut -d'"' -f4)
   if [ -z "$GIT_URL" ]; then
     echo -e "\033[0;31m❌ Unable to get Git URL from Pantheon. Please verify the site exists and you have access.\033[0m"
     exit 1
@@ -113,7 +156,7 @@ git checkout master
 # Download Database and Files
 # --------------------------------------------------
 echo "Downloading latest database backup..."
-terminus backup:get $PROJECT_NAME.dev --element=db --to=database.sql.gz
+terminus backup:get $PROJECT_NAME.$ENVIRONMENT --element=db --to=database.sql.gz
 if [ -f database.sql.gz ]; then
   gunzip database.sql.gz
 else
@@ -315,4 +358,20 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
   open "https://${PROJECT_NAME}.lndo.site"
 elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
   xdg-open "https://${PROJECT_NAME}.lndo.site"
+fi
+
+echo "✅ You are now synced with the '$ENVIRONMENT' environment of '$PROJECT_NAME'."
+
+echo "Would you like to create a new multidev branch? (y/n)"
+read -r CREATE_BRANCH
+
+if [[ "$CREATE_BRANCH" =~ ^[yY]$ ]]; then
+  echo "Enter multidev branch name:"
+  read -r BRANCH_NAME
+  terminus multidev:create "$PROJECT_NAME.$ENVIRONMENT" "$BRANCH_NAME"
+  if [ $? -eq 0 ]; then
+    echo "New multidev environment created at: https://$BRANCH_NAME-$PROJECT_NAME.pantheonsite.io"
+  else
+    echo -e "\033[0;31m❌ Failed to create multidev branch. Please check your input and try again.\033[0m"
+  fi
 fi
