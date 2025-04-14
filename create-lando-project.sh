@@ -173,6 +173,7 @@ config:
   php: '8.2'
   database: mariadb:10.4
   xdebug: true
+  via: nginx
 
 services:
   appserver:
@@ -197,7 +198,7 @@ services:
       platform: linux/amd64
 
 proxy:
-  appserver:
+  appserver_nginx:
     - ${PROJECT_NAME}.lndo.site
   pma:
     - pma.${PROJECT_NAME}.lndo.site
