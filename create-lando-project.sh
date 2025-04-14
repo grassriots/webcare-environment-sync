@@ -35,6 +35,27 @@ cat << "EOF"
                                                                                                                 
 EOF
 
+# Default destination to current directory
+DESTINATION=$(pwd)
+
+# Parse parameters
+while [[ $# -gt 0 ]]; do
+  key="$1"
+  case $key in
+    -d|--destination)
+      DESTINATION="$2"
+      shift
+      shift
+      ;;
+    *)    
+      echo "Unknown option: $1"
+      exit 1
+      ;;
+  esac
+done
+
+echo "Destination directory: $DESTINATION"
+
 echo ""
 echo "Starting WEBCARE Project Setup"
 echo "------------------------------------"
@@ -77,8 +98,8 @@ if [ -z "$GIT_URL" ]; then
   fi
 fi
 
-mkdir "$PROJECT_NAME"
-cd "$PROJECT_NAME" || exit
+mkdir -p "$DESTINATION/$PROJECT_NAME"
+cd "$DESTINATION/$PROJECT_NAME" || exit
 
 echo "Cloning Git repository..."
 git clone "$GIT_URL" .
@@ -218,6 +239,15 @@ if [ -f wp-config-local-sample.php ]; then
 // Lando local HTTPS handling\\
 if (isset(\$_SERVER['HTTP_X_FORWARDED_PROTO']) && \$_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https') {\\
   \$_SERVER['HTTPS'] = 'on';\\
+}\\
+" wp-config-local.php
+
+  # Insert Redis disabling fix after HTTPS handling
+  sed -i '' "10i\\
+\\
+// Disable Redis cache when running locally\\
+if (defined('PANTHEON_ENVIRONMENT') && PANTHEON_ENVIRONMENT === 'lando') {\\
+  define('WP_REDIS_DISABLED', true);\\
 }\\
 " wp-config-local.php
 else

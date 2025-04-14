@@ -50,6 +50,14 @@ Run the script from your terminal:
 ./create-lando-project.sh
 ```
 
+You can optionally provide a destination directory where the project will be installed:
+
+```bash
+./create-lando-project.sh --destination /path/to/your/folder
+```
+
+If no destination is provided, the project will be created inside the current working directory by default.
+
 You will be prompted for:
 
 - Your Pantheon project machine token
