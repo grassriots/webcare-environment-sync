@@ -61,8 +61,8 @@ If no destination is provided, the project will be created inside the current wo
 You will be prompted for:
 
 - Your Pantheon project machine token
-- Your Pantheon project machine name (example: `grassriots`, `ceiu-seic`, etc.)
-
+- Your Pantheon project machine name
+  
 The script will handle everything else.
 
 ## Important Notes
